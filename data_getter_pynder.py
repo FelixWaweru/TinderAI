@@ -1,5 +1,6 @@
-import datetime, requests, secrets, tkinter, PIL, json, csv
+import datetime, requests, secrets, tkinter, json, csv, keyboard
 from emoji import UNICODE_EMOJI
+from PIL import Image
 
 tinderToken = secrets.AUTH_TOKEN
 TINDER_URL = "https://api.gotinder.com"
@@ -49,7 +50,14 @@ def get_info(data, swipeValue):
 def like(data):
     user_id = data['user']["_id"]
     liked = requests.get(TINDER_URL + f"/like/{user_id}", headers={"X-Auth-Token": tinderToken}).json()
+    print("Liked")
     get_info(data, "Like")
+
+def dislike(data):
+    user_id = data['user']["_id"]
+    liked = requests.get(TINDER_URL + f"/pass/{user_id}", headers={"X-Auth-Token": tinderToken}).json()
+    print("Disliked")
+    get_info(data, "Dislike")
 
 def startSwiping():
     try:
@@ -59,7 +67,21 @@ def startSwiping():
         try:
             print("Connected successfully")
             for user in data['data']['results']:
-                print(user['user'])
+
+                # Display the user pictures
+                for image in user['user']['photos'][0]['processedFiles']:
+                    print(image['url'])
+                    load = Image.open(image['url'])
+
+                # Get the user keypress. Q for dislike and E for like
+                choice = input("Begin button press: ")
+                if choice == 'e':
+                    like(user)
+                    print("Like")
+                elif choice == 'q':
+                    dislike(user)
+                    print("Dislike")
+
         except Exception as e:
             print(str(e) + " Connection failed. Idk why")
 
