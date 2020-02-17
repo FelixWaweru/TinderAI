@@ -1,6 +1,9 @@
-import datetime, requests, secrets, tkinter, json, csv, keyboard
+import datetime, requests, secrets, tkinter, json, csv, keyboard, urllib, io, PIL, time
 from emoji import UNICODE_EMOJI
-from PIL import Image
+from PIL import ImageTk
+import PIL.Image
+from tkinter import *
+# TODO: Update Gist with updated code
 
 tinderToken = secrets.AUTH_TOKEN
 TINDER_URL = "https://api.gotinder.com"
@@ -9,41 +12,64 @@ TINDER_PROFILES_URL = "/v2/recs/core"
 
 
 def get_info(data, swipeValue):
+    # Get the user ID
     id = data['user']["_id"]
-    name = data.get("name", "Unknown")
 
-    bio = data.get("bio", "")
+    # Get the user name
+    name = data['user']['name']
+
+    # Get the user Bio
+    bio = data['user']['bio']
+
+    # Get the Bio length
     bioTextLength = len(str(bio))
+
+    # Get instances of emojis in Bio
     if UNICODE_EMOJI in bio.split():
         bioTextEmoji = True
     else:
         bioTextEmoji = False
 
-    distance = data.get("distance_mi", 0)*1.609 # Change distance to km
+    # Get the user distance
+    distance = str(int(data["distance_mi"])*1.609) # Change distance to km
 
-    birth_date = datetime.datetime.strptime(data["birth_date"], '%Y-%m-%dT%H:%M:%S.%fZ') if data.get(
-        "birth_date", False) else None
-    gender = ["Male", "Female", "Unknown"][data.get("gender", 2)]
+    # Get the user age
+    try:
+        # Get first four digits(Year) in Json birthdate
+        birth_date = data['user']["birth_date"][:4]
+        age = str(2020 - int(birth_date))
+    except:
+        age = "0"
 
-    images = list(map(lambda photo: photo["url"], data.get("photos", [])))
+    # Use Images in future AI
+    # images = list(map(lambda photo: photo["url"], data.get("photos", [])))
 
-    jobTitle = list(
-        map(lambda job: {"title": job.get("title", {}).get("name"), "company": job.get("company", {}).get("name")},
-            data.get("jobs", [])))
-    if jobTitle == "":
+    # Get the user Job
+    try:
+        jobTitle = data['user']['jobs']['title']['name']
+
+    except:
+        jobTitle = ""
+
+    if str(jobTitle) == "":
         job = False
     else:
         job = True
 
-    schoolTitle = list(map(lambda school: school["name"], data.get("schools", [])))
-    if schoolTitle == "":
+    # Get the user School
+    try:
+     schoolTitle = data['user']['schools']['name']
+    except:
+        schoolTitle = ""
+
+    if str(schoolTitle) == "":
         school = False
     else:
         school = True
 
-    csvFile = open('swipe_data.csv', 'w', newline='')
+    csvFile = open('swipe_data.csv', 'a', newline='')
     object = csv.writer(csvFile)
-    object.writerow((id, name, bio, bioTextEmoji, bioTextLength, distance, job, school, swipeValue))
+    object.writerow((id, name, age, bio.encode("utf-8"), bioTextEmoji, bioTextLength, distance, job, school, swipeValue))
     csvFile.close()
     print( str(name) + "'s Data saved")
 
@@ -63,15 +89,44 @@ def startSwiping():
     try:
         print("Connecting to Tinder API")
         print("Getting Nearby Users")
+
         data = requests.get(TINDER_URL + TINDER_PROFILES_URL, headers={"X-Auth-Token": tinderToken}).json()
         try:
             print("Connected successfully")
             for user in data['data']['results']:
 
                 # Display the user pictures
-                for image in user['user']['photos'][0]['processedFiles']:
-                    print(image['url'])
-                    load = Image.open(image['url'])
+                for image in user['user']['photos']:
+                    mainWindow = tkinter.Tk()
+                    mainWindow.title("Profile Pictures")
+                    raw_data = urllib.request.urlopen(image['url']).read()
+                    im = PIL.Image.open(io.BytesIO(raw_data))
+                    image = ImageTk.PhotoImage(im.resize((400, 400)))
+                    label = Label(mainWindow, image=image)
+                    closeButton = Button(mainWindow, text = "Next" , command = mainWindow.destroy)
+                    label.pack()
+                    closeButton.pack()
+                    mainWindow.mainloop()
+
+                # Get first four digits(Year) in Json birthdate
+                birth_date = str(user['user']["birth_date"])[:4]
+                age = str(2020 - int(birth_date))
+                print(user['user']['name'])
+                print(user['user']["bio"])
+                print(age)
+                print(str(user["distance_mi"]))
+                try:
+                    print(user['user']['jobs']['company']['name'])
+                except:
+                    print("No Job Company")
+                try:
+                    print(user['user']['jobs']['title']['name'])
+                except:
+                    print("No Job Name")
+                try:
+                    print(user['user']['schools']['name'])
+                except:
+                    print("No School Name")
 
                 # Get the user keypress. Q for dislike and E for like
                 choice = input("Begin button press: ")
